@@ -1,6 +1,6 @@
-use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::{fs, io};
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
@@ -12,8 +12,8 @@ use colored::*;
 #[derive(Parser)]
 #[command(name = "heaven")]
 #[command(version = "0.0.1")]
-#[command(author = "Your Name")]
-#[command(about = "A CLI for project management")]
+#[command(author = "oboard")]
+#[command(about = "Heaven is a SDK for multi-platform applications with moonbit.")]
 struct Opts {
     #[command(subcommand)]
     subcmd: SubCommand,
@@ -79,16 +79,39 @@ fn new_project() -> Result<()> {
         .status()
         .context("Failed to execute moon command")?;
 
-    let web_template_path = Path::new("../templates/web");
+    let web_template_path = Path::new("resources/templates/web");
 
-    fs::create_dir_all(&name).context("Failed to create project directory")?;
-    fs::copy(web_template_path, &name).context("Failed to copy web template")?;
+    copy_dir_all(web_template_path, Path::new(&name).join("web").as_path())
+        .context("Failed to copy web template")?;
 
     replace_template_variables(&format!("{}/web/index.html", name), &name)?;
     replace_template_variables(&format!("{}/web/manifest.json", name), &name)?;
 
     println!("{}", format!("Project {} created!", name).green());
 
+    Ok(())
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), io::Error> {
+    // 如果目标目录不存在，则创建它
+    if !dst.exists() {
+        fs::create_dir_all(dst)?;
+    }
+
+    // 遍历源目录中的所有条目
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        // 如果是目录，则递归调用复制函数
+        if src_path.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else {
+            // 如果是文件，则复制文件
+            fs::copy(&src_path, &dst_path)?;
+        }
+    }
     Ok(())
 }
 
@@ -127,6 +150,13 @@ fn build_project(build: Build) -> Result<()> {
 
             fs::create_dir_all(&format!("{}/assets/lib", target_dir))
                 .context("Failed to create target directory")?;
+
+            copy_dir_all(
+                Path::new("resources/templates/web/assets/lib"),
+                Path::new(&format!("{}/assets/lib/", target_dir)),
+            )
+            .context("Failed to copy lib files")?;
+
             fs::copy(
                 "target/wasm/release/build/main/main.wasm",
                 format!("{}/assets/lib/app.wasm", target_dir),
@@ -158,7 +188,8 @@ fn scan_targets() -> Result<Vec<String>> {
             entry.ok().and_then(|e| {
                 let path = e.path();
                 if path.is_dir() {
-                    path.file_name().and_then(|name| name.to_str().map(|s| s.to_string()))
+                    path.file_name()
+                        .and_then(|name| name.to_str().map(|s| s.to_string()))
                 } else {
                     None
                 }
@@ -168,5 +199,8 @@ fn scan_targets() -> Result<Vec<String>> {
 
     let supported_targets = vec!["web".to_string()];
 
-    Ok(targets.into_iter().filter(|t| supported_targets.contains(t)).collect())
+    Ok(targets
+        .into_iter()
+        .filter(|t| supported_targets.contains(t))
+        .collect())
 }

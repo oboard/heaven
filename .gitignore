@@ -1,1 +1,11 @@
 /target
+/heaven-app
+
+# Mac OS
+.DS_Store
+
+# Intellij IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
