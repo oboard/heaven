@@ -60,6 +60,26 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn web_sync_project() {
+    // 重新编译wasm到/target/app/web/assets/app.wasm
+    // moon build --target wasm --target-dir target/app/web/assets/
+    Command::new("moon")
+        .args(&["build", "--target", "wasm"])
+        .status()
+        .unwrap();
+    let _ = fs::copy(
+        "target/wasm/release/build/main/main.wasm",
+        "target/app/web/assets/app.wasm",
+    )
+    .context("Failed to copy wasm file");
+
+    // copy libs
+    let _ = copy_dir_all(
+        Path::new("resources/templates/web/assets/lib"),
+        Path::new("target/app/web/assets/lib"),
+    ).context("Failed to copy lib files");
+}
+
 async fn run_project(build: Build) -> Result<()> {
     build_project(build).context("Failed to build project")?;
     // 调用 start 函数来启动服务器
@@ -92,18 +112,7 @@ async fn run_project(build: Build) -> Result<()> {
                             println!("{} files changed", event.paths.len().to_string().blue());
                         }
 
-                        // 重新编译wasm到/target/app/web/assets/app.wasm
-
-                        Command::new("moon")
-                            .args(&[
-                                "build",
-                                "--target",
-                                "wasm",
-                                "--target-dir",
-                                "target/app/web/assets/",
-                            ])
-                            .status()
-                            .unwrap();
+                        web_sync_project();
                     }
                     Err(e) => eprintln!("Error: {:?}", e),
                 }
@@ -221,10 +230,10 @@ fn build_project(build: Build) -> Result<()> {
     match target.as_str() {
         "web" => {
             println!("Building for web...");
-            Command::new("moon")
-                .args(&["build", "--target", "wasm"])
-                .status()
-                .context("Failed to execute moon build command")?;
+            // Command::new("moon")
+            //     .args(&["build", "--target", "wasm"])
+            //     .status()
+            //     .context("Failed to execute moon build command")?;
 
             let target_dir = build.target_dir.replace("{target}", "web");
 
@@ -240,11 +249,12 @@ fn build_project(build: Build) -> Result<()> {
             )
             .context("Failed to copy lib files")?;
 
-            fs::copy(
-                "target/wasm/release/build/main/main.wasm",
-                format!("{}/assets/app.wasm", target_dir),
-            )
-            .context("Failed to copy wasm file")?;
+            // fs::copy(
+            //     "target/wasm/release/build/main/main.wasm",
+            //     format!("{}/assets/app.wasm", target_dir),
+            // )
+            // .context("Failed to copy wasm file")?;
+            web_sync_project();
 
             println!("{}", "Build completed!".green());
         }
