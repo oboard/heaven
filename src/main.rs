@@ -22,7 +22,7 @@ struct Opts {
 #[derive(Subcommand)]
 enum SubCommand {
     New,
-    Run,
+    Run(Build),
     Clean,
     Upgrade,
     Build(Build),
@@ -43,12 +43,18 @@ fn main() -> Result<()> {
 
     match opts.subcmd {
         SubCommand::New => new_project()?,
-        SubCommand::Run => println!("..."),
+        SubCommand::Run(build) => run_project(build)?,
         SubCommand::Clean => println!("..."),
         SubCommand::Upgrade => upgrade_heaven()?,
         SubCommand::Build(build) => build_project(build)?,
     }
 
+    Ok(())
+}
+
+fn run_project(build: Build) -> Result<()> {
+    build_project(build).context("Failed to build project")?;
+    
     Ok(())
 }
 
@@ -152,14 +158,19 @@ fn build_project(build: Build) -> Result<()> {
                 .context("Failed to create target directory")?;
 
             copy_dir_all(
+                Path::new("web"),
+                Path::new(&format!("{}/", target_dir)),
+            ) .context("Failed to copy web files")?;
+
+            copy_dir_all(
                 Path::new("resources/templates/web/assets/lib"),
-                Path::new(&format!("{}/assets/lib/", target_dir)),
+                Path::new("web/assets/lib"),
             )
             .context("Failed to copy lib files")?;
 
             fs::copy(
                 "target/wasm/release/build/main/main.wasm",
-                format!("{}/assets/lib/app.wasm", target_dir),
+                format!("{}/assets/app.wasm", target_dir),
             )
             .context("Failed to copy wasm file")?;
 
