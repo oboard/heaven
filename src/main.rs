@@ -15,6 +15,8 @@ use dialoguer::Input;
 use colored::*;
 use web::start_web_server;
 
+use std::env;
+
 /// CLI for project management
 #[derive(Parser)]
 #[command(name = "heaven")]
@@ -60,24 +62,35 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-fn web_sync_project() {
+fn web_sync_project() -> Result<()> {
     // 重新编译wasm到/target/app/web/assets/app.wasm
     // moon build --target wasm --target-dir target/app/web/assets/
+    let exe_path = get_exe_parent_dir()?;
+
+    // fs::copy(
+    //     exe_path.join("/resources/templates/main/heaven_web.mbt"),
+    //     "main/heaven_web.mbt",
+    // )
+    // .context("Failed to copy lib files")?;
+
     Command::new("moon")
         .args(&["build", "--target", "wasm"])
-        .status()
-        .unwrap();
-    let _ = fs::copy(
+        .status().context("Failed to execute moon build command")?;
+
+    fs::copy(
         "target/wasm/release/build/main/main.wasm",
         "target/app/web/assets/app.wasm",
     )
-    .context("Failed to copy wasm file");
+    .context("Failed to copy wasm file")?;
 
     // copy libs
-    let _ = copy_dir_all(
-        Path::new("resources/templates/web/assets/lib"),
+    copy_dir_all(
+        &exe_path.join("/resources/templates/web/assets/lib"),
         Path::new("target/app/web/assets/lib"),
-    ).context("Failed to copy lib files");
+    )
+    .context("Failed to copy lib files")?;
+
+    Ok(())
 }
 
 async fn run_project(build: Build) -> Result<()> {
@@ -112,14 +125,16 @@ async fn run_project(build: Build) -> Result<()> {
                             println!("{} files changed", event.paths.len().to_string().blue());
                         }
 
-                        web_sync_project();
+                        let _ = web_sync_project();
                     }
                     Err(e) => eprintln!("Error: {:?}", e),
                 }
             },
             notify::Config::default(),
         )?;
+        
         watcher.watch(Path::new("main"), RecursiveMode::Recursive)?;
+        watcher.watch(Path::new("lib"), RecursiveMode::Recursive)?;
 
         println!(
             "{}",
@@ -137,7 +152,14 @@ async fn run_project(build: Build) -> Result<()> {
     Ok(())
 }
 
+fn get_exe_parent_dir() -> Result<std::path::PathBuf> {
+    let exe_path = env::current_exe()?;
+    Ok(exe_path.parent().unwrap().to_path_buf())
+}
+
 fn new_project() -> Result<()> {
+    let exe_path = get_exe_parent_dir()?;
+
     let name: String = Input::new()
         .with_prompt("Project name")
         .default("heaven-app".into())
@@ -164,9 +186,13 @@ fn new_project() -> Result<()> {
         .status()
         .context("Failed to execute moon command")?;
 
-    let web_template_path = Path::new("resources/templates/web");
+    let web_template_path = exe_path.join("resources/templates/web");
+    let main_template_path = exe_path.join("resources/templates/main");
 
-    copy_dir_all(web_template_path, Path::new(&name).join("web").as_path())
+    copy_dir_all(&main_template_path, Path::new(&name).join("main").as_path())
+        .context("Failed to copy web template")?;
+
+    copy_dir_all(&web_template_path, Path::new(&name).join("web").as_path())
         .context("Failed to copy web template")?;
 
     replace_template_variables(&format!("{}/web/index.html", name), &name)?;
@@ -209,6 +235,8 @@ fn upgrade_heaven() -> Result<()> {
 }
 
 fn build_project(build: Build) -> Result<()> {
+    let exe_path = get_exe_parent_dir()?;
+
     let target = if let Some(target) = build.target {
         target
     } else {
@@ -244,17 +272,23 @@ fn build_project(build: Build) -> Result<()> {
                 .context("Failed to copy web files")?;
 
             copy_dir_all(
-                Path::new("resources/templates/web/assets/lib"),
+                &exe_path.join("resources/templates/web/assets/lib"),
                 Path::new("web/assets/lib"),
             )
-            .context("Failed to copy lib files")?;
+            .context("Failed to copy web lib files")?;
+
+            copy_dir_all(
+                &exe_path.join("resources/templates/main"),
+                Path::new("main"),
+            )
+            .context("Failed to copy main lib files")?;
 
             // fs::copy(
             //     "target/wasm/release/build/main/main.wasm",
             //     format!("{}/assets/app.wasm", target_dir),
             // )
             // .context("Failed to copy wasm file")?;
-            web_sync_project();
+            let _ = web_sync_project();
 
             println!("{}", "Build completed!".green());
         }

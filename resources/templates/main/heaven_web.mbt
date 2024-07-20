@@ -24,28 +24,18 @@ pub fn h_rd(data : Int) -> Unit {
 
 pub fn h_re() -> Unit {
   let message = receiver.buffer.to_string()
-  println("Received message: " + message)
-  let json = (match @json.parse(message)!! {
-    Ok(json) => json
-    Err(error) => {
-      console_log(message + " " + error.to_string())
-      return
-    }
-  }).as_object()
-  match json {
-    Some(json) => {
-      let event_type = json["type"].or(@json.JsonValue::Null).as_string().or("")
-      let event_data = json["data"].or(@json.JsonValue::Null).as_string().or("")
-      let listener = receiver.listener_map[event_type]
-      match listener {
+  match @json.parse(message)!! {
+    Ok(
+      Object(
+        { "type": Some(String(event_type)), "data": Some(String(event_data)) }
+      )
+    ) =>
+      match receiver.listener_map[event_type] {
         Some(listener) => listener(event_data)
-        None => console_log("No listener for event type: " + event_type)
+        None => println("No listener for event type: " + event_type)
       }
-    }
-    None => {
-      console_log("Error parsing JSON")
-      return
-    }
+    Ok(json) => println("type and data not found in \(json)")
+    Err(e) => println("Error parsing JSON: \(e)")
   }
 }
 
@@ -61,10 +51,6 @@ pub fn eval(str : String) -> Unit {
 
 fn transform_string(s : String) -> String {
   return s.replace_all(old="\n", new="\\n").replace_all(old="\"", new="\\\"")
-}
-
-fn console_log(message : String) -> Unit {
-  send_event("log", message)
 }
 
 fn send_event(event_type : String, event_data : String) -> Unit {
