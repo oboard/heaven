@@ -23,14 +23,6 @@ jobs:
         profile: minimal
         override: true
 
-    - name: Install dependencies on Windows
-      if: matrix.os == 'windows-latest'
-      run: |
-        curl -Lo npcap.zip https://nmap.org/npcap/dist/npcap-1.31.exe
-        7z x npcap.zip -onpcap
-        npcap\npcap-1.31.exe /S
-        echo "LIB=C:\\Program Files\\Npcap\\Lib" >> $GITHUB_ENV
-
     - name: Install dependencies
       run: cargo install --locked cargo-bundle
 

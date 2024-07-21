@@ -8,7 +8,6 @@ build = "build.rs"
 [package.metadata.bundle]
 icon = ["res/icon.png"]
 
-
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
 anyhow = "1.0"
