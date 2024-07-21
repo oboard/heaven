@@ -1,25 +1,25 @@
 use actix_files as fs;
 use actix_web::{App, HttpServer};
 use colored::*;
-use ipnetwork::IpNetwork;
-use pnet::datalink::interfaces;
-use pnet::ipnetwork;
+// use ipnetwork::IpNetwork;
+// use pnet::datalink::interfaces;
+// use pnet::ipnetwork;
 // use std::env;
 
 async fn print_available_urls(port: u16) {
     let local_ip = "127.0.0.1".to_string();
-    let mut network_ips = vec![];
+    // let mut network_ips = vec![];
 
-    // 获取网络接口的 IP 地址
-    for interface in interfaces() {
-        for ip in interface.ips {
-            if let IpNetwork::V4(ipv4) = ip {
-                if ipv4.ip().is_private() {
-                    network_ips.push(ipv4.ip().to_string());
-                }
-            }
-        }
-    }
+    // // 获取网络接口的 IP 地址
+    // for interface in interfaces() {
+    //     for ip in interface.ips {
+    //         if let IpNetwork::V4(ipv4) = ip {
+    //             if ipv4.ip().is_private() {
+    //                 network_ips.push(ipv4.ip().to_string());
+    //             }
+    //         }
+    //     }
+    // }
 
     // 打印本地地址
     println!(
@@ -27,13 +27,13 @@ async fn print_available_urls(port: u16) {
         format!("  > Local:    http://{}:{}/", local_ip, port).yellow()
     );
 
-    // 打印网络地址
-    for ip in network_ips {
-        println!(
-            "{}",
-            format!("  > Network:  http://{}:{}/", ip, port).cyan()
-        );
-    }
+    // // 打印网络地址
+    // for ip in network_ips {
+    //     println!(
+    //         "{}",
+    //         format!("  > Network:  http://{}:{}/", ip, port).cyan()
+    //     );
+    // }
 }
 
 pub async fn start_web_server() -> std::io::Result<()> {
