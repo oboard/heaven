@@ -11,6 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [x86_64, aarch64]
 
     steps:
       - name: Checkout code
@@ -27,24 +28,45 @@ jobs:
         run: cargo build --release
 
       - name: Upload artifact (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'x86_64'
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-latest-heaven
           path: target/release/heaven
 
+      - name: Upload artifact (Linux aarch64)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
+        uses: actions/upload-artifact@v2
+        with:
+          name: ubuntu-latest-heaven-aarch64
+          path: target/release/heaven
+
       - name: Upload artifact (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && matrix.arch == 'x86_64'
         uses: actions/upload-artifact@v2
         with:
           name: macos-latest-heaven
           path: target/release/heaven
 
+      - name: Upload artifact (macOS aarch64)
+        if: matrix.os == 'macos-latest' && matrix.arch == 'aarch64'
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-latest-heaven-aarch64
+          path: target/release/heaven
+
       - name: Upload artifact (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && matrix.arch == 'x86_64'
         uses: actions/upload-artifact@v2
         with:
           name: windows-latest-heaven
+          path: target/release/heaven.exe
+
+      - name: Upload artifact (Windows aarch64)
+        if: matrix.os == 'windows-latest' && matrix.arch == 'aarch64'
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-latest-heaven-aarch64
           path: target/release/heaven.exe
 
   release:
@@ -87,34 +109,63 @@ jobs:
             - Second Change
           draft: false
           prerelease: false
-          
 
-      - name: Upload Linux artifact
+      - name: Upload Linux x86_64 artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/ubuntu/heaven
-          asset_name: heaven
+          asset_name: heaven-linux-x86_64
           asset_content_type: application/octet-stream
 
-      - name: Upload macOS artifact
+      - name: Upload macOS x86_64 artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/macos/heaven
-          asset_name: heaven
+          asset_name: heaven-macos-x86_64
           asset_content_type: application/octet-stream
 
-      - name: Upload Windows artifact
+      - name: Upload Windows x86_64 artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/windows/heaven.exe
-          asset_name: heaven.exe
+          asset_name: heaven-windows-x86_64.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux aarch64 artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/ubuntu/heaven-aarch64
+          asset_name: heaven-linux-aarch64
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS aarch64 artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/macos/heaven-aarch64
+          asset_name: heaven-macos-aarch64
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows aarch64 artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/windows/heaven-aarch64.exe
+          asset_name: heaven-windows-aarch64.exe
           asset_content_type: application/octet-stream
