@@ -3,8 +3,22 @@ import "./canvas.mjs";
 let _mbt_callbacks = null;
 const _mbt_listeners = {};
 
-function defineEvent(type, callback) {
+export function defineEvent(type, callback) {
   _mbt_listeners[type] = callback;
+}
+
+export function bindObject(prefix, obj) {
+  const properties = Object.getOwnPropertyNames(Object.getPrototypeOf(obj));
+
+  for (const methodName of properties) {
+    const method = obj[methodName];
+
+    if (typeof method === "function") {
+      defineEvent(`${prefix}.${methodName}`, (...args) => {
+        method.apply(obj, args);
+      });
+    }
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
