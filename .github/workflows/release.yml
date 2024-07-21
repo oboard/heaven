@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   build:
@@ -11,48 +11,69 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [x86_64, aarch64]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
           override: true
 
-      - name: Install target
-        run: rustup target add ${{ matrix.arch }}-unknown-${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}-gnu
+      - name: Build project
+        run: cargo build --release
 
-      - name: Build
-        run: cargo build --release --target ${{ matrix.arch }}-unknown-${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}-gnu
-
-      - name: Package binary
-        run: |
-          mkdir -p dist
-          cp target/${{ matrix.arch }}-unknown-${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'macos-latest' && 'darwin' || 'linux' }}-gnu/release/* dist/
-          cd dist
-          tar -czvf ../${{ matrix.os }}-${{ matrix.arch }}.tar.gz *
-        shell: bash
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload artifact (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.os }}-${{ matrix.arch }}
-          path: ${{ matrix.os }}-${{ matrix.arch }}.tar.gz
+          name: ubuntu-latest-heaven
+          path: target/release/heaven
+
+      - name: Upload artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-latest-heaven
+          path: target/release/heaven
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v2
+        with:
+          name: windows-latest-heaven
+          path: target/release/heaven.exe
 
   release:
-    needs: build
     runs-on: ubuntu-latest
-    steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: .
+    needs: build
 
-      - name: Create Release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download artifact (Linux)
+        uses: actions/download-artifact@v2
+        with:
+          name: ubuntu-latest-heaven
+          path: artifacts/ubuntu
+
+      - name: Download artifact (macOS)
+        uses: actions/download-artifact@v2
+        with:
+          name: macos-latest-heaven
+          path: artifacts/macos
+
+      - name: Download artifact (Windows)
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-latest-heaven
+          path: artifacts/windows
+
+      - name: Create release
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -60,65 +81,39 @@ jobs:
         with:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
+          body: |
+            Changes in this Release
+            - First Change
+            - Second Change
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
+      - name: Upload Linux artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ubuntu-latest-x86_64.tar.gz
-          asset_name: ubuntu-x86_64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: artifacts/ubuntu/heaven
+          asset_name: heaven
+          asset_content_type: application/octet-stream
 
-      - name: Upload Release Asset
+      - name: Upload macOS artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ubuntu-latest-aarch64.tar.gz
-          asset_name: ubuntu-aarch64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: artifacts/macos/heaven
+          asset_name: heaven
+          asset_content_type: application/octet-stream
 
-      - name: Upload Release Asset
+      - name: Upload Windows artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos-latest-x86_64.tar.gz
-          asset_name: macos-x86_64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macos-latest-aarch64.tar.gz
-          asset_name: macos-aarch64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-latest-x86_64.tar.gz
-          asset_name: windows-x86_64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./windows-latest-aarch64.tar.gz
-          asset_name: windows-aarch64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: artifacts/windows/heaven.exe
+          asset_name: heaven.exe
+          asset_content_type: application/octet-stream
