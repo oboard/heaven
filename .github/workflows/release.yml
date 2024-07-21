@@ -77,22 +77,40 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Download artifact (Linux)
+      - name: Download artifact (Linux-x86_64)
         uses: actions/download-artifact@v2
         with:
           name: ubuntu-latest-heaven
           path: artifacts/ubuntu
 
-      - name: Download artifact (macOS)
+      - name: Download artifact (macOS-x86_64)
         uses: actions/download-artifact@v2
         with:
           name: macos-latest-heaven
           path: artifacts/macos
 
-      - name: Download artifact (Windows)
+      - name: Download artifact (Windows-x86_64)
         uses: actions/download-artifact@v2
         with:
           name: windows-latest-heaven
+          path: artifacts/windows
+
+      - name: Download artifact (Linux-aarch64)
+        uses: actions/download-artifact@v2
+        with:
+          name: ubuntu-latest-heaven-aarch64
+          path: artifacts/ubuntu
+
+      - name: Download artifact (macOS-aarch64)
+        uses: actions/download-artifact@v2
+        with:
+          name: macos-latest-heaven-aarch64
+          path: artifacts/macos
+
+      - name: Download artifact (Windows-aarch64)
+        uses: actions/download-artifact@v2
+        with:
+          name: windows-latest-heaven-aarch64
           path: artifacts/windows
 
       - name: Create release
