@@ -17,6 +17,13 @@ export function bindObject(prefix, obj) {
       defineEvent(`${prefix}.${methodName}`, (...args) => {
         method.apply(obj, args);
       });
+    } else if (typeof method === "object") {
+      bindObject(`${prefix}.${methodName}`, method);
+    } else {
+      defineEvent(`${prefix}.${methodName}`, () => method);
+      defineEvent(`${prefix}.${methodName}.set`, (value) => {
+        obj[methodName] = value;
+      });
     }
   }
 }
@@ -106,9 +113,9 @@ window.addEventListener("DOMContentLoaded", () => {
       default:
         if (res.type in _mbt_listeners) {
           if (Array.isArray(res.data)) {
-            _mbt_listeners[res.type](...res.data);
+            sendToMBT("result", _mbt_listeners[res.type](...res.data));
           } else {
-            _mbt_listeners[res.type](res.data);
+            sendToMBT("result", _mbt_listeners[res.type](res.data));
           }
         }
     }

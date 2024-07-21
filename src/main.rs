@@ -223,8 +223,6 @@ fn new_project() -> Result<()> {
     fs::write(&moon_pkg_json_path, moon_pkg_json_content)
         .with_context(|| format!("Failed to write file {}", moon_pkg_json_path))?;
 
-
-
     // replace_template_variables(&format!("{}/main/moon.pkg.json", name), &name, &username)?;
     replace_template_variables(&format!("{}/web/index.html", name), &name, &username)?;
     replace_template_variables(&format!("{}/web/manifest.json", name), &name, &username)?;
