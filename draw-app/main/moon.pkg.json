@@ -1,0 +1,9 @@
+{
+  "import": [],
+  "is-main": true,
+  "link": {
+    "wasm": {
+      "exports": ["h_rs", "h_rd", "h_re"]
+    }
+  }
+}
