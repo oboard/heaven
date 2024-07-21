@@ -11,6 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [x86_64, aarch64]
 
     steps:
     - name: Checkout code
@@ -23,29 +24,59 @@ jobs:
         profile: minimal
         override: true
 
+    - name: Install dependencies
+      run: cargo install --locked cargo-bundle
+
     - name: Build project
-      run: cargo build --release
+      run: |
+        if [ "${{ matrix.arch }}" == "x86_64" ]; then
+          cargo build --release
+        else
+          rustup target add aarch64-pc-windows-msvc
+          cargo build --release --target aarch64-pc-windows-msvc
+        fi
 
-    - name: Upload artifact (Linux)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Upload artifact (Linux x86_64)
+      if: matrix.os == 'ubuntu-latest' && matrix.arch == 'x86_64'
       uses: actions/upload-artifact@v2
       with:
-        name: ubuntu-latest-heaven
+        name: ubuntu-latest-x86_64-heaven
         path: target/release/heaven
 
-    - name: Upload artifact (macOS)
-      if: matrix.os == 'macos-latest'
+    - name: Upload artifact (Linux ARM64)
+      if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
       uses: actions/upload-artifact@v2
       with:
-        name: macos-latest-heaven
+        name: ubuntu-latest-aarch64-heaven
+        path: target/aarch64-unknown-linux-gnu/release/heaven
+
+    - name: Upload artifact (macOS x86_64)
+      if: matrix.os == 'macos-latest' && matrix.arch == 'x86_64'
+      uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-x86_64-heaven
         path: target/release/heaven
 
-    - name: Upload artifact (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Upload artifact (macOS ARM64)
+      if: matrix.os == 'macos-latest' && matrix.arch == 'aarch64'
       uses: actions/upload-artifact@v2
       with:
-        name: windows-latest-heaven
+        name: macos-latest-aarch64-heaven
+        path: target/aarch64-apple-darwin/release/heaven
+
+    - name: Upload artifact (Windows x86_64)
+      if: matrix.os == 'windows-latest' && matrix.arch == 'x86_64'
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-x86_64-heaven
         path: target/release/heaven.exe
+
+    - name: Upload artifact (Windows ARM64)
+      if: matrix.os == 'windows-latest' && matrix.arch == 'aarch64'
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-aarch64-heaven
+        path: target/aarch64-pc-windows-msvc/release/heaven.exe
 
   release:
     runs-on: ubuntu-latest
@@ -55,32 +86,54 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Download artifact (Linux)
+    - name: Download artifact (Linux x86_64)
       uses: actions/download-artifact@v2
       with:
-        name: ubuntu-latest-heaven
-        path: artifacts/ubuntu
+        name: ubuntu-latest-x86_64-heaven
+        path: artifacts/ubuntu/x86_64
 
-    - name: Download artifact (macOS)
+    - name: Download artifact (Linux ARM64)
       uses: actions/download-artifact@v2
       with:
-        name: macos-latest-heaven
-        path: artifacts/macos
+        name: ubuntu-latest-aarch64-heaven
+        path: artifacts/ubuntu/aarch64
 
-    - name: Download artifact (Windows)
+    - name: Download artifact (macOS x86_64)
       uses: actions/download-artifact@v2
       with:
-        name: windows-latest-heaven
-        path: artifacts/windows
+        name: macos-latest-x86_64-heaven
+        path: artifacts/macos/x86_64
+
+    - name: Download artifact (macOS ARM64)
+      uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-aarch64-heaven
+        path: artifacts/macos/aarch64
+
+    - name: Download artifact (Windows x86_64)
+      uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-x86_64-heaven
+        path: artifacts/windows/x86_64
+
+    - name: Download artifact (Windows ARM64)
+      uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-aarch64-heaven
+        path: artifacts/windows/aarch64
 
     - name: Create Release
       uses: ncipollo/release-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         artifacts: |
-          artifacts/ubuntu/*
-          artifacts/macos/*
-          artifacts/windows/*
-        token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts/ubuntu/x86_64/*
+          artifacts/ubuntu/aarch64/*
+          artifacts/macos/x86_64/*
+          artifacts/macos/aarch64/*
+          artifacts/windows/x86_64/*
+          artifacts/windows/aarch64/*
         tag: ${{ github.ref }}
         name: Release ${{ github.ref }}
         body: |
