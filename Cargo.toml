@@ -2,7 +2,12 @@
 name = "heaven"
 version = "0.1.0"
 edition = "2021"
+description = "A command-line tool to manage your heaven."
 build = "build.rs"
+
+[package.metadata.bundle]
+icon = ["res/icon.png"]
+
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
