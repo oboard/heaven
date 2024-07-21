@@ -75,7 +75,8 @@ fn web_sync_project() -> Result<()> {
 
     Command::new("moon")
         .args(&["build", "--target", "wasm"])
-        .status().context("Failed to execute moon build command")?;
+        .status()
+        .context("Failed to execute moon build command")?;
 
     fs::copy(
         "target/wasm/release/build/main/main.wasm",
@@ -132,7 +133,7 @@ async fn run_project(build: Build) -> Result<()> {
             },
             notify::Config::default(),
         )?;
-        
+
         watcher.watch(Path::new("main"), RecursiveMode::Recursive)?;
         watcher.watch(Path::new("lib"), RecursiveMode::Recursive)?;
 
@@ -195,10 +196,40 @@ fn new_project() -> Result<()> {
     copy_dir_all(&web_template_path, Path::new(&name).join("web").as_path())
         .context("Failed to copy web template")?;
 
-    replace_template_variables(&format!("{}/web/index.html", name), &name)?;
-    replace_template_variables(&format!("{}/web/manifest.json", name), &name)?;
+    // 在moon.pkg.json中增加
+    //   "link": {
+    //     "wasm": {
+    //       "exports": ["h_rs", "h_rd", "h_re"]
+    //     }
+    //   }
+    
+    let moon_pkg_json_path = format!("{}/main/moon.pkg.json", name);
+    let moon_pkg_json_content = fs::read_to_string(&moon_pkg_json_path)
+        .with_context(|| format!("Failed to read file {}", moon_pkg_json_path))?;
+    let mut moon_pkg_json = serde_json::from_str::<serde_json::Value>(&moon_pkg_json_content)
+        .with_context(|| format!("Failed to parse json {}", moon_pkg_json_path))?;
 
-    println!("{}", format!("Project {} created!", name).green());
+    let link_obj = serde_json::json!({
+        "wasm": {
+            "exports": ["h_rs", "h_rd", "h_re"]
+        }
+    });
+
+    moon_pkg_json["link"] = link_obj;
+
+    let moon_pkg_json_content = serde_json::to_string_pretty(&moon_pkg_json)
+        .with_context(|| format!("Failed to serialize json {}", moon_pkg_json_path))?;
+
+    fs::write(&moon_pkg_json_path, moon_pkg_json_content)
+        .with_context(|| format!("Failed to write file {}", moon_pkg_json_path))?;
+
+
+
+    // replace_template_variables(&format!("{}/main/moon.pkg.json", name), &name, &username)?;
+    replace_template_variables(&format!("{}/web/index.html", name), &name, &username)?;
+    replace_template_variables(&format!("{}/web/manifest.json", name), &name, &username)?;
+
+    // println!("{}", format!("Project {} created!", name).green());
 
     Ok(())
 }
@@ -300,10 +331,12 @@ fn build_project(build: Build) -> Result<()> {
     Ok(())
 }
 
-fn replace_template_variables(file_path: &str, project_name: &str) -> Result<()> {
+fn replace_template_variables(file_path: &str, project_name: &str, author: &str) -> Result<()> {
     let file_content = fs::read_to_string(file_path)
         .with_context(|| format!("Failed to read file {}", file_path))?;
-    let replaced_content = file_content.replace("{{name}}", project_name);
+    let replaced_content = file_content
+        .replace("{{name}}", project_name)
+        .replace("{{author}}", author);
     fs::write(file_path, replaced_content)
         .with_context(|| format!("Failed to write file {}", file_path))?;
     Ok(())

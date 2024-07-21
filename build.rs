@@ -1,21 +1,20 @@
-use std::env;
 use std::fs;
 use std::path::Path;
 
 fn main() {
-    // 获取目标目录
-    let out_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable is not defined");
-    let debug_dir = Path::new(&out_dir)
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
 
     // 定义源目录和目标目录
     let src_dir = Path::new("resources");
-    let target_dir = debug_dir.join("resources");
+    let target_dir = Path::new("target/debug/resources");
+
+    // 递归复制文件夹
+    if let Err(e) = copy_dir_all(src_dir, &target_dir) {
+        panic!("Failed to copy directory: {}", e);
+    }
+
+    // 定义源目录和目标目录
+    let src_dir = Path::new("resources");
+    let target_dir = Path::new("target/release/resources");
 
     // 递归复制文件夹
     if let Err(e) = copy_dir_all(src_dir, &target_dir) {
