@@ -23,24 +23,29 @@ jobs:
         profile: minimal
         override: true
 
-    - name: Install dependencies
-      run: cargo install --locked cargo-bundle
-
     - name: Build project
       run: cargo build --release
-      env:
-        LIB: ${{ env.LIB }}
 
-    - name: Bundle project
-      run: cargo bundle --release
-
-    - name: Upload artifacts
+    - name: Upload artifact (Linux)
+      if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.os }}-artifact
-        path: |
-          target/release/
-          target/release/bundle/
+        name: ubuntu-latest-heaven
+        path: target/release/heaven
+
+    - name: Upload artifact (macOS)
+      if: matrix.os == 'macos-latest'
+      uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-heaven
+        path: target/release/heaven
+
+    - name: Upload artifact (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-heaven
+        path: target/release/heaven.exe
 
   release:
     runs-on: ubuntu-latest
@@ -50,22 +55,22 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Download artifacts
+    - name: Download artifact (Linux)
       uses: actions/download-artifact@v2
       with:
-        name: ubuntu-latest-artifact
+        name: ubuntu-latest-heaven
         path: artifacts/ubuntu
 
-    - name: Download artifacts
+    - name: Download artifact (macOS)
       uses: actions/download-artifact@v2
       with:
-        name: macos-latest-artifact
+        name: macos-latest-heaven
         path: artifacts/macos
 
-    - name: Download artifacts
+    - name: Download artifact (Windows)
       uses: actions/download-artifact@v2
       with:
-        name: windows-latest-artifact
+        name: windows-latest-heaven
         path: artifacts/windows
 
     - name: Create Release
