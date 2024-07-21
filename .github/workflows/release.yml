@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -13,80 +13,80 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
-          override: true
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
 
-      - name: Install dependencies on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          curl -Lo npcap.zip https://nmap.org/npcap/dist/npcap-1.31.exe
-          7z x npcap.zip -onpcap
-          npcap\npcap-1.31.exe /S
-          echo "LIB=C:\\Program Files\\Npcap\\Lib" >> $GITHUB_ENV
+    - name: Install dependencies on Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        curl -Lo npcap.zip https://nmap.org/npcap/dist/npcap-1.31.exe
+        7z x npcap.zip -onpcap
+        npcap\npcap-1.31.exe /S
+        echo "LIB=C:\\Program Files\\Npcap\\Lib" >> $GITHUB_ENV
 
-      - name: Install dependencies
-        run: cargo install --locked cargo-bundle
+    - name: Install dependencies
+      run: cargo install --locked cargo-bundle
 
-      - name: Build project
-        run: cargo build --release
-        env:
-          LIB: ${{ env.LIB }}
+    - name: Build project
+      run: cargo build --release
+      env:
+        LIB: ${{ env.LIB }}
 
-      - name: Bundle project
-        run: cargo bundle --release
+    - name: Bundle project
+      run: cargo bundle --release
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.os }}-artifact
-          path: |
-            target/release/
-            target/release/bundle/
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.os }}-artifact
+        path: |
+          target/release/
+          target/release/bundle/
 
   release:
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      # - name: Download artifacts
-      #   uses: actions/download-artifact@v2
-      #   with:
-      #     name: ubuntu-latest-artifact
-      #     path: artifacts/ubuntu
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-artifact
+        path: artifacts/ubuntu
 
-      # - name: Download artifacts
-      #   uses: actions/download-artifact@v2
-      #   with:
-      #     name: macos-latest-artifact
-      #     path: artifacts/macos
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-artifact
+        path: artifacts/macos
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v2
-        with:
-          name: windows-latest-artifact
-          path: artifacts/windows
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-artifact
+        path: artifacts/windows
 
-      - name: Create Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: |
-            artifacts/ubuntu/*
-            artifacts/macos/*
-            artifacts/windows/*
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          name: Release ${{ github.ref }}
-          body: |
-            New release ${{ github.ref }} is available.
-          draft: false
-          prerelease: false
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: |
+          artifacts/ubuntu/*
+          artifacts/macos/*
+          artifacts/windows/*
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ github.ref }}
+        name: Release ${{ github.ref }}
+        body: |
+          New release ${{ github.ref }} is available.
+        draft: false
+        prerelease: false
