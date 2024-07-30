@@ -1,0 +1,24 @@
+{
+  "source_dir": "/Users/oboard/Development/moonbit-packages/heaven/examples/draw-app",
+  "name": "oboard/heaven-app",
+  "packages": [
+    {
+      "is-main": true,
+      "is-third-party": false,
+      "root": "oboard/heaven-app",
+      "rel": "main",
+      "files": [
+        "/Users/oboard/Development/moonbit-packages/heaven/examples/draw-app/main/_wasm_bridge.mbt",
+        "/Users/oboard/Development/moonbit-packages/heaven/examples/draw-app/main/main.mbt"
+      ],
+      "wbtest-files": [],
+      "test-files": [],
+      "deps": [],
+      "wbtest-deps": [],
+      "test-deps": [],
+      "artifact": "/Users/oboard/Development/moonbit-packages/heaven/examples/draw-app/target/wasm-gc/release/check/main/main.mi"
+    }
+  ],
+  "deps": [],
+  "backend": "wasm-gc"
+}

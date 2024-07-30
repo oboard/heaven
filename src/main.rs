@@ -1,4 +1,8 @@
+mod nodejs;
 mod web;
+mod config;
+
+use config::Build;
 
 use notify::RecommendedWatcher;
 use notify::{RecursiveMode, Watcher};
@@ -13,6 +17,7 @@ use clap::{Parser, Subcommand};
 use dialoguer::Input;
 // use serde_json::json;
 use colored::*;
+use nodejs::run_node_js;
 use web::start_web_server;
 
 use std::env;
@@ -37,15 +42,6 @@ enum SubCommand {
     Build(Build),
 }
 
-#[derive(Parser)]
-struct Build {
-    #[arg(short, long)]
-    target: Option<String>,
-    #[arg(long, default_value = "src")]
-    source_dir: String,
-    #[arg(long, default_value = "target/app/{target}")]
-    target_dir: String,
-}
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -95,58 +91,72 @@ fn web_sync_project() -> Result<()> {
 }
 
 async fn run_project(build: Build) -> Result<()> {
+    let target_dir = build.target_dir.clone();
+    let target = determine_target(&build.target)?;
     build_project(build).context("Failed to build project")?;
     // 调用 start 函数来启动服务器
 
     std::thread::spawn(move || {
+        fn monitor_changes() -> Result<()> {
+            let (_tx, _rx): (Sender<notify::Event>, _) = channel();
+
+            // let (tx, _rx) = channel();
+            let mut watcher = RecommendedWatcher::new(
+                move |res: Result<notify::Event, notify::Error>| {
+                    match res {
+                        Ok(event) => {
+                            // 这里可以添加重新启动服务器的逻辑
+                            // 显示有多少个文件改变， 如果只有一个文件的话，打印文件名
+
+                            if event.paths.len() == 1 {
+                                println!(
+                                    "File changed: {}",
+                                    event.paths[0].display().to_string().blue()
+                                );
+                            } else {
+                                println!("{} files changed", event.paths.len().to_string().blue());
+                            }
+
+                            let _ = web_sync_project();
+                        }
+                        Err(e) => eprintln!("Error: {:?}", e),
+                    }
+                },
+                notify::Config::default(),
+            )?;
+
+            watcher.watch(Path::new("main"), RecursiveMode::Recursive)?;
+            watcher.watch(Path::new("lib"), RecursiveMode::Recursive)?;
+
+            println!(
+                "{}",
+                "Monitoring for changes in the main directory..."
+                    .magenta()
+                    .bold()
+            );
+
+            loop {
+                // 在这里可以做一些有用的事情，比如检查队列，避免 CPU 占用过高
+                std::thread::sleep(Duration::from_secs(1));
+            }
+        }
+
         let _ = monitor_changes();
     });
 
-    if let Err(e) = start_web_server().await {
-        eprintln!("{} {}", "Error starting server:".red().bold(), e);
-    }
-
-    fn monitor_changes() -> Result<()> {
-        let (_tx, _rx): (Sender<notify::Event>, _) = channel();
-
-        // let (tx, _rx) = channel();
-        let mut watcher = RecommendedWatcher::new(
-            move |res: Result<notify::Event, notify::Error>| {
-                match res {
-                    Ok(event) => {
-                        // 这里可以添加重新启动服务器的逻辑
-                        // 显示有多少个文件改变， 如果只有一个文件的话，打印文件名
-
-                        if event.paths.len() == 1 {
-                            println!(
-                                "File changed: {}",
-                                event.paths[0].display().to_string().blue()
-                            );
-                        } else {
-                            println!("{} files changed", event.paths.len().to_string().blue());
-                        }
-
-                        let _ = web_sync_project();
-                    }
-                    Err(e) => eprintln!("Error: {:?}", e),
-                }
-            },
-            notify::Config::default(),
-        )?;
-
-        watcher.watch(Path::new("main"), RecursiveMode::Recursive)?;
-        watcher.watch(Path::new("lib"), RecursiveMode::Recursive)?;
-
-        println!(
-            "{}",
-            "Monitoring for changes in the main directory..."
-                .magenta()
-                .bold()
-        );
-
-        loop {
-            // 在这里可以做一些有用的事情，比如检查队列，避免 CPU 占用过高
-            std::thread::sleep(Duration::from_secs(1));
+    match target.as_str() {
+        "web" => {
+            if let Err(e) = start_web_server().await {
+                eprintln!("{} {}", "Error starting server:".red().bold(), e);
+            }
+        }
+        "node" => {
+            println!("Starting node server...");
+            // 调用 node
+            run_node_js(target_dir).context("Failed to run node server")?;
+        }
+        _ => {
+            println!("Unsupported target.");
         }
     }
 
@@ -202,7 +212,7 @@ fn new_project() -> Result<()> {
     //       "exports": ["h_rs", "h_rd", "h_re"]
     //     }
     //   }
-    
+
     let moon_pkg_json_path = format!("{}/main/moon.pkg.json", name);
     let moon_pkg_json_content = fs::read_to_string(&moon_pkg_json_path)
         .with_context(|| format!("Failed to read file {}", moon_pkg_json_path))?;
@@ -263,26 +273,36 @@ fn upgrade_heaven() -> Result<()> {
     Ok(())
 }
 
-fn build_project(build: Build) -> Result<()> {
-    let exe_path = get_exe_parent_dir()?;
-
-    let target = if let Some(target) = build.target {
-        target
+fn determine_target(target: &Option<String>) -> Result<String> {
+    if let Some(target) = target {
+        Ok(target.clone())
     } else {
         let available_targets = scan_targets()?;
         if available_targets.is_empty() {
             return Err(anyhow!("No available targets found."));
         }
         if available_targets.len() == 1 {
-            available_targets[0].clone()
+            Ok(available_targets[0].clone())
         } else {
             let target: String = Input::new()
                 .with_prompt("Select output target")
                 .default(available_targets[0].clone())
                 .interact_text()?;
-            target
+            Ok(target)
         }
-    };
+    }
+}
+
+fn build_project(build: Build) -> Result<()> {
+    let exe_path = get_exe_parent_dir()?;
+
+    let target = determine_target(&build.target)?;
+
+    copy_dir_all(
+        &exe_path.join("resources/templates/main"),
+        Path::new("main"),
+    )
+    .context("Failed to copy main lib files")?;
 
     match target.as_str() {
         "web" => {
@@ -306,18 +326,29 @@ fn build_project(build: Build) -> Result<()> {
             )
             .context("Failed to copy web lib files")?;
 
-            copy_dir_all(
-                &exe_path.join("resources/templates/main"),
-                Path::new("main"),
-            )
-            .context("Failed to copy main lib files")?;
-
             // fs::copy(
             //     "target/wasm/release/build/main/main.wasm",
             //     format!("{}/assets/app.wasm", target_dir),
             // )
             // .context("Failed to copy wasm file")?;
             let _ = web_sync_project();
+
+            println!("{}", "Build completed!".green());
+        }
+        "node" => {
+            println!("Building for node...");
+            let target_dir = build.target_dir.replace("{target}", "node");
+
+            fs::create_dir_all(&target_dir).context("Failed to create target directory")?;
+
+            copy_dir_all(Path::new("node"), Path::new(&target_dir))
+                .context("Failed to copy node files")?;
+
+            fs::copy(
+                "target/wasm/release/build/main/main.wasm",
+                Path::new(&format!("{}/assets/app.wasm", target_dir)),
+            )
+            .context("Failed to copy wasm file")?;
 
             println!("{}", "Build completed!".green());
         }
@@ -355,7 +386,7 @@ fn scan_targets() -> Result<Vec<String>> {
         })
         .collect::<Vec<String>>();
 
-    let supported_targets = vec!["web".to_string()];
+    let supported_targets = vec!["web".to_string(), "node".to_string()];
 
     Ok(targets
         .into_iter()

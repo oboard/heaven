@@ -6,9 +6,9 @@ struct Offset {
 let lastOffset : Offset = { x: 0, y: 0 }
 
 fn main {
+  let _ = send_event("log", @json.String("Hello, world!"))
   setFontSize(100)
   fillText("画图", 10, 100)
-
   addEventListener(
     "window",
     "mousemove",
@@ -17,11 +17,7 @@ fn main {
         @json.JsonValue::Array(
           [
             Object(
-              {
-                "buttons": Some(Number(buttons)),
-                "x": Some(Number(x)),
-                "y": Some(Number(y)),
-              }
+              { "buttons": Number(buttons), "x": Number(x), "y": Number(y) }
             ),
           ]
         ) => {
