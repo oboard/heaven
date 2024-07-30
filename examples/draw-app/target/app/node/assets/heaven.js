@@ -106,7 +106,6 @@ export default class Heaven {
             const str = new TextDecoder("utf-16")
               .decode(new Uint16Array(buffer))
               .replace(/\0/g, "");
-            console.debug(str);
             handleReceive(JSON.parse(str));
             buffer = [];
           }

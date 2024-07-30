@@ -1,6 +1,6 @@
+mod config;
 mod nodejs;
 mod web;
-mod config;
 
 use config::Build;
 
@@ -42,7 +42,6 @@ enum SubCommand {
     Build(Build),
 }
 
-
 #[actix_web::main]
 async fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
@@ -58,6 +57,15 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+fn build_wasm() -> Result<()> {
+    Command::new("moon")
+        .args(&["build", "--target", "wasm"])
+        .status()
+        .context("Failed to execute moon build command")?;
+
+    Ok(())
+}
+
 fn web_sync_project() -> Result<()> {
     // 重新编译wasm到/target/app/web/assets/app.wasm
     // moon build --target wasm --target-dir target/app/web/assets/
@@ -69,10 +77,7 @@ fn web_sync_project() -> Result<()> {
     // )
     // .context("Failed to copy lib files")?;
 
-    Command::new("moon")
-        .args(&["build", "--target", "wasm"])
-        .status()
-        .context("Failed to execute moon build command")?;
+    build_wasm().context("Failed to build wasm")?;
 
     fs::copy(
         "target/wasm/release/build/main/main.wasm",
@@ -94,64 +99,65 @@ async fn run_project(build: Build) -> Result<()> {
     let target_dir = build.target_dir.clone();
     let target = determine_target(&build.target)?;
     build_project(build).context("Failed to build project")?;
-    // 调用 start 函数来启动服务器
-
-    std::thread::spawn(move || {
-        fn monitor_changes() -> Result<()> {
-            let (_tx, _rx): (Sender<notify::Event>, _) = channel();
-
-            // let (tx, _rx) = channel();
-            let mut watcher = RecommendedWatcher::new(
-                move |res: Result<notify::Event, notify::Error>| {
-                    match res {
-                        Ok(event) => {
-                            // 这里可以添加重新启动服务器的逻辑
-                            // 显示有多少个文件改变， 如果只有一个文件的话，打印文件名
-
-                            if event.paths.len() == 1 {
-                                println!(
-                                    "File changed: {}",
-                                    event.paths[0].display().to_string().blue()
-                                );
-                            } else {
-                                println!("{} files changed", event.paths.len().to_string().blue());
-                            }
-
-                            let _ = web_sync_project();
-                        }
-                        Err(e) => eprintln!("Error: {:?}", e),
-                    }
-                },
-                notify::Config::default(),
-            )?;
-
-            watcher.watch(Path::new("main"), RecursiveMode::Recursive)?;
-            watcher.watch(Path::new("lib"), RecursiveMode::Recursive)?;
-
-            println!(
-                "{}",
-                "Monitoring for changes in the main directory..."
-                    .magenta()
-                    .bold()
-            );
-
-            loop {
-                // 在这里可以做一些有用的事情，比如检查队列，避免 CPU 占用过高
-                std::thread::sleep(Duration::from_secs(1));
-            }
-        }
-
-        let _ = monitor_changes();
-    });
-
     match target.as_str() {
         "web" => {
+            std::thread::spawn(move || {
+                fn monitor_changes() -> Result<()> {
+                    let (_tx, _rx): (Sender<notify::Event>, _) = channel();
+
+                    // let (tx, _rx) = channel();
+                    let mut watcher = RecommendedWatcher::new(
+                        move |res: Result<notify::Event, notify::Error>| {
+                            match res {
+                                Ok(event) => {
+                                    // 这里可以添加重新启动服务器的逻辑
+                                    // 显示有多少个文件改变， 如果只有一个文件的话，打印文件名
+
+                                    if event.paths.len() == 1 {
+                                        println!(
+                                            "File changed: {}",
+                                            event.paths[0].display().to_string().blue()
+                                        );
+                                    } else {
+                                        println!(
+                                            "{} files changed",
+                                            event.paths.len().to_string().blue()
+                                        );
+                                    }
+
+                                    let _ = web_sync_project();
+                                }
+                                Err(e) => eprintln!("Error: {:?}", e),
+                            }
+                        },
+                        notify::Config::default(),
+                    )?;
+
+                    watcher.watch(Path::new("main"), RecursiveMode::Recursive)?;
+                    watcher.watch(Path::new("lib"), RecursiveMode::Recursive)?;
+
+                    println!(
+                        "{}",
+                        "Monitoring for changes in the main directory..."
+                            .magenta()
+                            .bold()
+                    );
+
+                    loop {
+                        // 在这里可以做一些有用的事情，比如检查队列，避免 CPU 占用过高
+                        std::thread::sleep(Duration::from_secs(1));
+                    }
+                }
+
+                let _ = monitor_changes();
+            });
+            // 调用 start 函数来启动服务器
             if let Err(e) = start_web_server().await {
                 eprintln!("{} {}", "Error starting server:".red().bold(), e);
             }
         }
         "node" => {
-            println!("Starting node server...");
+            println!("Starting node.js...");
             // 调用 node
             run_node_js(target_dir).context("Failed to run node server")?;
         }
@@ -169,7 +175,7 @@ fn get_exe_parent_dir() -> Result<std::path::PathBuf> {
 }
 
 fn new_project() -> Result<()> {
-    let exe_path = get_exe_parent_dir()?;
+    let _exe_path = get_exe_parent_dir()?;
 
     let name: String = Input::new()
         .with_prompt("Project name")
@@ -197,14 +203,17 @@ fn new_project() -> Result<()> {
         .status()
         .context("Failed to execute moon command")?;
 
-    let web_template_path = exe_path.join("resources/templates/web");
-    let main_template_path = exe_path.join("resources/templates/main");
+    fn copy_template(name: &str, dir: &str) -> Result<()> {
+        let _exe_path = get_exe_parent_dir()?;
+        let template_path = _exe_path.join(format!("resources/templates/{dir}"));
+        copy_dir_all(&template_path, Path::new(&name).join(dir).as_path())
+            .context("Failed to copy lib files")?;
+        Ok(())
+    }
 
-    copy_dir_all(&main_template_path, Path::new(&name).join("main").as_path())
-        .context("Failed to copy web template")?;
-
-    copy_dir_all(&web_template_path, Path::new(&name).join("web").as_path())
-        .context("Failed to copy web template")?;
+    copy_template(&name, "web").context("Failed to copy web template")?;
+    copy_template(&name, "node").context("Failed to copy node template")?;
+    copy_template(&name, "main").context("Failed to copy main template")?;
 
     // 在moon.pkg.json中增加
     //   "link": {
@@ -343,6 +352,8 @@ fn build_project(build: Build) -> Result<()> {
 
             copy_dir_all(Path::new("node"), Path::new(&target_dir))
                 .context("Failed to copy node files")?;
+
+            build_wasm().context("Failed to build wasm")?;
 
             fs::copy(
                 "target/wasm/release/build/main/main.wasm",
