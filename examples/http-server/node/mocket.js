@@ -59,7 +59,13 @@ export default class Mocket {
       if (!response) {
         throw new Error("Response not created");
       }
-      response.end(data);
+      // 如果data是对象，则转化为JSON字符串
+
+      if (typeof data === "object") {
+        response.end(JSON.stringify(data));
+      } else {
+        response.end(data);
+      }
     });
   }
 }

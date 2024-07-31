@@ -15,12 +15,16 @@ pub struct HeavenBinding {
 
 pub struct HttpServer {
   port : Double
-  mappings : Map[String, (@json.JsonValue, @json.JsonValue) -> String]
+  mappings : Map[String, (@json.JsonValue, @json.JsonValue) -> @json.JsonValue]
 }
 
 let binding : HeavenBinding = {
   listen: fn(_a, _b) { println("Please bind heaven.") },
   send: fn(_a, _b) { println("Please bind heaven.") },
+}
+
+pub fn html(data : String) -> @json.JsonValue {
+  { "type": "html", "data": String(data) }
 }
 
 pub fn listen(
@@ -41,9 +45,32 @@ pub fn listen(
           match res {
             { "method": String(method), "url": String(url) } =>
               match server.mappings.get(method + " " + url) {
-                Some(handler) => end(String(handler(req, res)))
+                Some(handler) => {
+                  let result = handler(req, res)
+                  match result {
+                    Object({ "type": "html", "data": data }) => {
+                      server.writeHead(200, { "Content-Type": "text/html" })
+                      end(data)
+                    }
+                    Object(_) => {
+                      server.writeHead(
+                        200,
+                        { "Content-Type": "application/json" },
+                      )
+                      end(result)
+                    }
+                    String(_) => {
+                      server.writeHead(200, { "Content-Type": "text/plain" })
+                      end(result)
+                    }
+                    _ => {
+                      server.writeHead(200, { "Content-Type": "text/plain" })
+                      end(result)
+                    }
+                  }
+                }
                 None => {
-                  writeHead(404, { "Content-Type": "text/plain" })
+                  server.writeHead(404, { "Content-Type": "text/plain" })
                   end("Not Found")
                   // println("No handler found for " + method + " " + url)
                 }
@@ -62,7 +89,7 @@ pub fn listen(
 pub fn get(
   self : HttpServer,
   mapping : String,
-  handler : (@json.JsonValue, @json.JsonValue) -> String
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
 ) -> Unit {
   self.mappings["GET " + mapping] = handler
 }
@@ -70,7 +97,7 @@ pub fn get(
 pub fn post(
   self : HttpServer,
   mapping : String,
-  handler : (@json.JsonValue, @json.JsonValue) -> String
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
 ) -> Unit {
   self.mappings["POST " + mapping] = handler
 }
@@ -78,7 +105,7 @@ pub fn post(
 pub fn put(
   self : HttpServer,
   mapping : String,
-  handler : (@json.JsonValue, @json.JsonValue) -> String
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
 ) -> Unit {
   self.mappings["PUT " + mapping] = handler
 }
@@ -86,20 +113,61 @@ pub fn put(
 pub fn delete(
   self : HttpServer,
   mapping : String,
-  handler : (@json.JsonValue, @json.JsonValue) -> String
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
 ) -> Unit {
   self.mappings["DELETE " + mapping] = handler
+}
+
+pub fn patch(
+  self : HttpServer,
+  mapping : String,
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
+) -> Unit {
+  self.mappings["PATCH " + mapping] = handler
+}
+
+pub fn options(
+  self : HttpServer,
+  mapping : String,
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
+) -> Unit {
+  self.mappings["OPTIONS " + mapping] = handler
+}
+
+pub fn head(
+  self : HttpServer,
+  mapping : String,
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
+) -> Unit {
+  self.mappings["HEAD " + mapping] = handler
+}
+
+pub fn trace(
+  self : HttpServer,
+  mapping : String,
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
+) -> Unit {
+  self.mappings["TRACE " + mapping] = handler
+}
+
+pub fn connect(
+  self : HttpServer,
+  mapping : String,
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
+) -> Unit {
+  self.mappings["CONNECT " + mapping] = handler
 }
 
 pub fn all(
   self : HttpServer,
   mapping : String,
-  handler : (@json.JsonValue, @json.JsonValue) -> String
+  handler : (@json.JsonValue, @json.JsonValue) -> @json.JsonValue
 ) -> Unit {
   self.mappings["ALL " + mapping] = handler
 }
 
 pub fn writeHead(
+  self : HttpServer,
   statusCode : @json.JsonValue,
   headers : @json.JsonValue
 ) -> Unit {

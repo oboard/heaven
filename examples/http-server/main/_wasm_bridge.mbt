@@ -23,7 +23,7 @@ pub fn h_se() = "__h" "h_se"
 let receiver : Receiver = {
   buffer: Buffer::new(),
   listener_map: Map::new(),
-  result: @json.JsonValue::Null,
+  result: Null,
 }
 
 pub fn h_rs() -> Unit {
@@ -48,8 +48,7 @@ pub fn h_re() -> Unit {
             None => println("No listener for event type: " + event_type)
           }
       }
-    Ok(Object({ "type": String("result") })) =>
-      receiver.result = @json.JsonValue::Null
+    Ok(Object({ "type": String("result") })) => receiver.result = Null
     Ok(json) => println("type and data not found in \(json)")
     Err(e) => println("Error parsing JSON: \(e)")
   }
@@ -63,8 +62,7 @@ pub fn listen_event(
 }
 
 pub fn send_event(event_type : String, event_data : @json.JsonValue) -> Unit {
-  let json = { "type": @json.JsonValue::String(event_type), "data": event_data }
-  let body = @json.stringify(@json.JsonValue::Object(json))
+  let body = @json.stringify({ "type": String(event_type), "data": event_data })
   let chars = body.to_array().map(fn(c) { c.to_int() })
   // receiver.result = @json.JsonValue::Null
   h_ss()
@@ -83,7 +81,7 @@ pub fn addEventListener(
   ignore(
     send_event(
       "\(objectName).addEventListener",
-      Array([String(eventName), String("\(objectName).\(eventName)")]),
+      [String(eventName), String("\(objectName).\(eventName)")],
     ),
   )
   listen_event("\(objectName).\(eventName)", callback)

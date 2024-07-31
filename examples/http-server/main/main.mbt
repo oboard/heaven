@@ -1,10 +1,25 @@
 fn main {
-  @mocket.listen(get_context(), 4000).get(
+  let server = @mocket.listen(get_context(), 4000)
+  server.get(
     "/",
     fn(_req, _res) {
-      println("Received request for /")
-      @mocket.writeHead(200, { "Content-Type": "text/plain" })
-      "Hello, World!"
+      @mocket.html("<h1>Hello, World!</h1>")
+    },
+  )
+  server.get(
+    "/text",
+    fn(_req, _res) {
+      String("<h1>Hello, World!</h1>")
+    },
+  )
+  server.get(
+    "/data",
+    fn(_req, _res) {
+      {
+        "name": "John Doe",
+        "age": 30,
+        "city": "New York"
+      }
     },
   )
 }
