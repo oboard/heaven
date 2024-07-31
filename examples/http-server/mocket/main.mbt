@@ -18,12 +18,20 @@ pub struct HttpServer {
   mappings : Map[String, (@json.JsonValue, @json.JsonValue) -> String]
 }
 
-pub let binding : HeavenBinding = {
+let binding : HeavenBinding = {
   listen: fn(_a, _b) { println("Please bind heaven.") },
   send: fn(_a, _b) { println("Please bind heaven.") },
 }
 
-pub fn listen(port : Double) -> HttpServer {
+pub fn listen(
+  context : (
+    (String, (@json.JsonValue) -> Unit) -> Unit,
+    (String, @json.JsonValue) -> Unit,
+  ),
+  port : Double
+) -> HttpServer {
+  binding.listen = context.0
+  binding.send = context.1
   let server = { port, mappings: of([]) }
   (binding.listen)(
     "http.request",

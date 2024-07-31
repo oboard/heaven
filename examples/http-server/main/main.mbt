@@ -1,7 +1,5 @@
 fn main {
-  @mocket.binding.send = send_event
-  @mocket.binding.listen = listen_event
-  @mocket.listen(4000).get(
+  @mocket.listen(get_context(), 4000).get(
     "/",
     fn(_req, _res) {
       println("Received request for /")
