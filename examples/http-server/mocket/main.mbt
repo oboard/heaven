@@ -13,6 +13,10 @@ pub struct HeavenBinding {
   mut send : (String, @json.JsonValue) -> Unit
 }
 
+pub struct HttpResponse {
+  id : Double
+}
+
 pub struct HttpServer {
   port : Double
   mappings : Map[String, (@json.JsonValue, @json.JsonValue) -> @json.JsonValue]
@@ -42,40 +46,45 @@ pub fn listen(
     fn(result) {
       match result {
         [req, res] =>
-          match res {
-            { "method": String(method), "url": String(url) } =>
+          match (req, res) {
+            (
+              { "method": String(method), "url": String(url) },
+              { "id": Number(id) },
+            ) => {
+              let response = { id, }
               match server.mappings.get(method + " " + url) {
                 Some(handler) => {
                   let result = handler(req, res)
                   match result {
                     Object({ "type": "html", "data": data }) => {
-                      server.writeHead(200, { "Content-Type": "text/html" })
-                      end(data)
+                      response.writeHead(200, { "Content-Type": "text/html" })
+                      response.end(data)
                     }
                     Object(_) => {
-                      server.writeHead(
+                      response.writeHead(
                         200,
                         { "Content-Type": "application/json" },
                       )
-                      end(result)
+                      response.end(result)
                     }
                     String(_) => {
-                      server.writeHead(200, { "Content-Type": "text/plain" })
-                      end(result)
+                      response.writeHead(200, { "Content-Type": "text/plain" })
+                      response.end(result)
                     }
                     _ => {
-                      server.writeHead(200, { "Content-Type": "text/plain" })
-                      end(result)
+                      response.writeHead(200, { "Content-Type": "text/plain" })
+                      response.end(result)
                     }
                   }
                 }
                 None => {
-                  server.writeHead(404, { "Content-Type": "text/plain" })
-                  end("Not Found")
+                  response.writeHead(404, { "Content-Type": "text/plain" })
+                  response.end("Not Found")
                   // println("No handler found for " + method + " " + url)
                 }
               }
-            _ => println("Invalid request")
+            }
+            _ => println("Invalid struct")
           }
         _ => println("Invalid request")
       }
@@ -167,13 +176,13 @@ pub fn all(
 }
 
 pub fn writeHead(
-  self : HttpServer,
+  self : HttpResponse,
   statusCode : @json.JsonValue,
   headers : @json.JsonValue
 ) -> Unit {
-  (binding.send)("http.writeHead", [statusCode, headers])
+  (binding.send)("http.writeHead", [Number(self.id), statusCode, headers])
 }
 
-pub fn end(data : @json.JsonValue) -> Unit {
-  (binding.send)("http.end", data)
+pub fn end(self : HttpResponse, data : @json.JsonValue) -> Unit {
+  (binding.send)("http.end", [Number(self.id), data])
 }

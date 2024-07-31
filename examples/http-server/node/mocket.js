@@ -2,22 +2,32 @@ import http from "node:http";
 
 export default class Mocket {
   init(heaven) {
-    let response = undefined;
+    const responses = [];
     let server = undefined;
+
+    const createResponse = (res) => {
+      // 查找responses中的空位，如果没有空位，则添加到末尾
+      const index = responses.findIndex((r) => r === undefined);
+      if (index === -1) {
+        responses.push(res);
+        return responses.length - 1;
+      }
+      responses[index] = res;
+      return index;
+    };
 
     heaven.defineEvent("http.createServer", () => {
       console.log("Creating server");
       server = http.createServer((req, res) => {
-        response = res;
         const callRequest = (data) => {
           heaven.callFunction("http.request", [
-            {},
             {
               url: req.url,
               method: req.method,
               headers: req.headers,
               body: data,
             },
+            { id: createResponse(res) },
           ]);
         };
 
@@ -44,20 +54,22 @@ export default class Mocket {
         throw new Error("Server not created");
       }
       server.listen(port, () => {
-        console.log(`Server running on port ${port}`);
+        console.info(`Server running on port ${port}`);
       });
     });
 
-    heaven.defineEvent("http.writeHead", (statusCode, headers) => {
+    heaven.defineEvent("http.writeHead", (id, statusCode, headers) => {
+      const response = responses[id];
       if (!response) {
         throw new Error("Response not created");
       }
       response.writeHead(statusCode, headers);
     });
 
-    heaven.defineEvent("http.end", (data) => {
+    heaven.defineEvent("http.end", (id, data) => {
+      const response = responses[id];
       if (!response) {
-        throw new Error("Response not created");
+        throw new Error(`Response ${id} not created`);
       }
       // 如果data是对象，则转化为JSON字符串
 
@@ -66,6 +78,7 @@ export default class Mocket {
       } else {
         response.end(data);
       }
+      responses[id] = undefined;
     });
   }
 }
