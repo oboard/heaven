@@ -1,4 +1,5 @@
 import http from "node:http";
+import fs from "node:fs";
 
 export default class Mocket {
   init(heaven) {
@@ -16,11 +17,11 @@ export default class Mocket {
       return index;
     };
 
-    heaven.defineEvent("http.createServer", () => {
+    heaven.listenEvent("http.createServer", () => {
       console.log("Creating server");
       server = http.createServer((req, res) => {
         const callRequest = (data) => {
-          heaven.callFunction("http.request", [
+          heaven.sendEvent("http.request", [
             {
               url: req.url,
               method: req.method,
@@ -49,7 +50,7 @@ export default class Mocket {
       });
     });
 
-    heaven.defineEvent("http.listen", (port) => {
+    heaven.listenEvent("http.listen", (port) => {
       if (!server) {
         throw new Error("Server not created");
       }
@@ -58,7 +59,7 @@ export default class Mocket {
       });
     });
 
-    heaven.defineEvent("http.writeHead", (id, statusCode, headers) => {
+    heaven.listenEvent("http.writeHead", (id, statusCode, headers) => {
       const response = responses[id];
       if (!response) {
         throw new Error("Response not created");
@@ -66,7 +67,7 @@ export default class Mocket {
       response.writeHead(statusCode, headers);
     });
 
-    heaven.defineEvent("http.end", (id, data) => {
+    heaven.listenEvent("http.end", (id, data) => {
       const response = responses[id];
       if (!response) {
         throw new Error(`Response ${id} not created`);
@@ -74,6 +75,16 @@ export default class Mocket {
       // 如果data是对象，则转化为JSON字符串
 
       if (typeof data === "object") {
+        if (data.type === "file") {
+          const filePath = data.path;
+          const file = fs.readFileSync(filePath);
+          const contentType = data.contentType || "text/plain";
+          response.writeHead(200, {
+            "Content-Type": contentType,
+          });
+          response.end(file);
+          return;
+        }
         response.end(JSON.stringify(data));
       } else {
         response.end(data);

@@ -4,7 +4,7 @@ let _mbt_callbacks = null;
 const _mbt_listeners = {};
 
 export default class Heaven {
-  defineEvent(type, callback) {
+  listenEvent(type, callback) {
     _mbt_listeners[type] = callback;
   }
 
@@ -14,7 +14,7 @@ export default class Heaven {
     }
     const properties = Object.getOwnPropertyNames(Object.getPrototypeOf(obj));
 
-    defineEvent(`${prefix}.addEventListener`, (type, listener) => {
+    listenEvent(`${prefix}.addEventListener`, (type, listener) => {
       obj.addEventListener(type, (...args) => {
         function getCompleteObject(obj) {
           const result = {};
@@ -24,28 +24,28 @@ export default class Heaven {
           }
           return result;
         }
-        callFunction(listener, args.map(getCompleteObject));
+        sendEvent(listener, args.map(getCompleteObject));
       });
     });
     for (const methodName of properties) {
       const method = obj[methodName];
 
       if (typeof method === "function") {
-        defineEvent(`${prefix}.${methodName}`, (...args) => {
+        listenEvent(`${prefix}.${methodName}`, (...args) => {
           method.apply(obj, args);
         });
       } else if (typeof method === "object") {
         bindObject(`${prefix}.${methodName}`, method);
       } else {
-        defineEvent(`${prefix}.${methodName}`, () => method);
-        defineEvent(`${prefix}.${methodName}.set`, (value) => {
+        listenEvent(`${prefix}.${methodName}`, () => method);
+        listenEvent(`${prefix}.${methodName}.set`, (value) => {
           obj[methodName] = value;
         });
       }
     }
   }
 
-  callFunction(eventType, data) {
+  sendEvent(eventType, data) {
     const json = JSON.stringify({ type: eventType, data });
     const uint8array = new TextEncoder("utf-16")
       .encode(json)
@@ -130,9 +130,9 @@ export default class Heaven {
         default:
           if (res.type in _mbt_listeners) {
             if (Array.isArray(res.data)) {
-              callFunction("result", _mbt_listeners[res.type](...res.data));
+              sendEvent("result", _mbt_listeners[res.type](...res.data));
             } else {
-              callFunction("result", _mbt_listeners[res.type](res.data));
+              sendEvent("result", _mbt_listeners[res.type](res.data));
             }
           }
       }

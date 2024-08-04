@@ -31,6 +31,10 @@ pub fn html(data : String) -> @json.JsonValue {
   { "type": "html", "data": String(data) }
 }
 
+pub fn file(path : String) -> @json.JsonValue {
+  { "type": "file", "path": String(path) }
+}
+
 pub fn listen(
   context : (
     (String, (@json.JsonValue) -> Unit) -> Unit,
@@ -52,9 +56,33 @@ pub fn listen(
               { "id": Number(id) },
             ) => {
               let response = { id, }
-              match server.mappings.get(method + " " + url) {
+              let urlObject = URL::parse(url)
+              match server.mappings.get(method + " " + urlObject.path) {
                 Some(handler) => {
-                  let result = handler(req, res)
+                  let result = handler(
+                    {
+                      "url": String(url),
+                      "host": String(urlObject.host),
+                      "port": match urlObject.port {
+                        Some(port) => Number(port.to_double())
+                        None => Null
+                      },
+                      "path": String(urlObject.path),
+                      "query": match urlObject.query {
+                        Some(query) =>
+                          query.iter().map(
+                            fn(pair) {
+                              let (key, value) = pair
+                              (key, @json.String(value))
+                            },
+                          ).to_array()
+                          |> from_array
+                          |> Object
+                        None => []
+                      },
+                    },
+                    res,
+                  )
                   match result {
                     Object({ "type": "html", "data": data }) => {
                       response.writeHead(200, { "Content-Type": "text/html" })
