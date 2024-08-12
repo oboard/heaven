@@ -65,19 +65,6 @@ export default class Heaven {
   }
 
   init() {
-    function prototypeToFFI(prototype) {
-      return Object.fromEntries(
-        Object.entries(Object.getOwnPropertyDescriptors(prototype))
-          .filter(([_key, value]) => value.value)
-          .map(([key, value]) => [
-            key,
-            typeof value.value === "function"
-              ? Function.prototype.call.bind(value.value)
-              : () => value.value,
-          ])
-      );
-    }
-
     const [log, flush] = (() => {
       let buffer = [];
       return [
@@ -119,7 +106,6 @@ export default class Heaven {
 
     const importObject = {
       __h: { h_ss, h_sd, h_se },
-      math: prototypeToFFI(Math),
       spectest: { print_char: log },
     };
 
@@ -133,21 +119,16 @@ export default class Heaven {
           break;
         default:
           if (res.type in this._mbt_listeners) {
-            if (Array.isArray(res.data)) {
-              this.sendEvent(
-                "result",
-                this._mbt_listeners[res.type](...res.data)
-              );
-            } else {
-              this.sendEvent(
-                "result",
-                this._mbt_listeners[res.type](res.data)
-              );
+            const f = this._mbt_listeners[res.type];
+            const result = Array.isArray(res.data)
+              ? f(...res.data)
+              : f(res.data);
+            if (res.id !== undefined && result !== undefined) {
+              this.sendEvent(res.id, result);
             }
           }
       }
     };
-
     const bytes = fs.readFileSync("./assets/app.wasm");
     WebAssembly.instantiate(bytes, importObject).then((obj) => {
       this._mbt_callbacks = obj.instance.exports;
