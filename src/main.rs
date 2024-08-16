@@ -230,7 +230,7 @@ fn new_project() -> Result<()> {
 
     let link_obj = serde_json::json!({
         "wasm": {
-            "exports": ["h_rs", "h_rd", "h_re"]
+            "exports": ["h_rd", "h_re"]
         }
     });
 

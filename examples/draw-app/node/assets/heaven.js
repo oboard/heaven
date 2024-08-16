@@ -1,20 +1,24 @@
 // biome-ignore lint/style/useNodejsImportProtocol: <explanation>
 import fs from "fs";
-let _mbt_callbacks = null;
-const _mbt_listeners = {};
 
 export default class Heaven {
+  _mbt_callbacks = null;
+  _mbt_listeners = {};
   listenEvent(type, callback) {
-    _mbt_listeners[type] = callback;
+    this._mbt_listeners[type] = callback;
   }
 
   bindObject(prefix, obj) {
     if (obj === null || typeof obj === "undefined" || typeof obj !== "object") {
       return;
     }
-    const properties = Object.getOwnPropertyNames(Object.getPrototypeOf(obj));
+    const prototype = Object.getPrototypeOf(obj);
+    if (prototype === null) {
+      return;
+    }
+    const properties = Object.getOwnPropertyNames(prototype);
 
-    listenEvent(`${prefix}.addEventListener`, (type, listener) => {
+    this.listenEvent(`${prefix}.addEventListener`, (type, listener) => {
       obj.addEventListener(type, (...args) => {
         function getCompleteObject(obj) {
           const result = {};
@@ -31,14 +35,14 @@ export default class Heaven {
       const method = obj[methodName];
 
       if (typeof method === "function") {
-        listenEvent(`${prefix}.${methodName}`, (...args) => {
+        this.listenEvent(`${prefix}.${methodName}`, (...args) => {
           method.apply(obj, args);
         });
       } else if (typeof method === "object") {
-        bindObject(`${prefix}.${methodName}`, method);
+        this.bindObject(`${prefix}.${methodName}`, method);
       } else {
-        listenEvent(`${prefix}.${methodName}`, () => method);
-        listenEvent(`${prefix}.${methodName}.set`, (value) => {
+        this.listenEvent(`${prefix}.${methodName}`, () => method);
+        this.listenEvent(`${prefix}.${methodName}.set`, (value) => {
           obj[methodName] = value;
         });
       }
@@ -53,27 +57,13 @@ export default class Heaven {
         acc.push(byte, 0);
         return acc;
       }, []);
-    _mbt_callbacks.h_rs();
     for (let i = 0; i < uint8array.length; i++) {
-      _mbt_callbacks.h_rd(uint8array[i]);
+      this._mbt_callbacks.h_rd(uint8array[i]);
     }
-    _mbt_callbacks.h_re();
+    this._mbt_callbacks.h_re();
   }
 
   init() {
-    function prototypeToFFI(prototype) {
-      return Object.fromEntries(
-        Object.entries(Object.getOwnPropertyDescriptors(prototype))
-          .filter(([_key, value]) => value.value)
-          .map(([key, value]) => [
-            key,
-            typeof value.value === "function"
-              ? Function.prototype.call.bind(value.value)
-              : () => value.value,
-          ])
-      );
-    }
-
     const [log, flush] = (() => {
       let buffer = [];
       return [
@@ -94,12 +84,9 @@ export default class Heaven {
       ];
     })();
 
-    const [h_ss, h_sd, h_se] = (() => {
+    const [h_sd, h_se] = (() => {
       let buffer = [];
       return [
-        () => {
-          buffer = [];
-        },
         (ch) => buffer.push(ch),
         () => {
           if (buffer.length > 0) {
@@ -114,12 +101,11 @@ export default class Heaven {
     })();
 
     const importObject = {
-      __h: { h_ss, h_sd, h_se },
-      math: prototypeToFFI(Math),
+      __h: {h_sd, h_se },
       spectest: { print_char: log },
     };
 
-    function handleReceive(res) {
+    const handleReceive = (res) => {
       switch (res.type) {
         case "log":
           console.log(res.data);
@@ -128,20 +114,21 @@ export default class Heaven {
           console.error(res.data);
           break;
         default:
-          if (res.type in _mbt_listeners) {
-            if (Array.isArray(res.data)) {
-              sendEvent("result", _mbt_listeners[res.type](...res.data));
-            } else {
-              sendEvent("result", _mbt_listeners[res.type](res.data));
+          if (res.type in this._mbt_listeners) {
+            const f = this._mbt_listeners[res.type];
+            const result = Array.isArray(res.data)
+              ? f(...res.data)
+              : f(res.data);
+            if (res.id !== undefined && result !== undefined) {
+              this.sendEvent(res.id, result);
             }
           }
       }
-    }
-
+    };
     const bytes = fs.readFileSync("./assets/app.wasm");
     WebAssembly.instantiate(bytes, importObject).then((obj) => {
-      _mbt_callbacks = obj.instance.exports;
-      _mbt_callbacks._start();
+      this._mbt_callbacks = obj.instance.exports;
+      this._mbt_callbacks._start();
     });
   }
 }
